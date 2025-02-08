@@ -14,11 +14,12 @@ import {ERC1155Utils} from "../lib/openzeppelin-contracts/contracts/token/ERC115
         // URI de base pour les métadonnées de tous les tokens ERC1155
         string private _uri;
 
-    struct Contributor {
-        address contributor;
-        uint256 amount;
-        uint8 pourcentageTFV;
-    }
+        // constructor(address initialOwner) ERC1155("") Ownable(initialOwner) {}
+        struct Contributor {
+            address contributor;
+            uint256 amount;
+            uint8 pourcentageTFV;
+        }
     Contributor[] public contributors;
 
         // Le constructeur définit le propriétaire initial et appelle le constructeur ERC1155
@@ -29,9 +30,13 @@ import {ERC1155Utils} from "../lib/openzeppelin-contracts/contracts/token/ERC115
         uint8[] memory _percentages
     ) ERC1155("") Ownable(initialOwner) {
         require(_contributors.length == _amounts.length && _amounts.length == _percentages.length, "Invalid data");
+    }
+
+    function mintTokensForContributors(address[] memory _contributors, uint256[] memory amounts) external onlyOwner {
+        require(_contributors.length == amounts.length, "Arrays must have the same length");
 
         for (uint256 i = 0; i < _contributors.length; i++) {
-            contributors.push(Contributor(_contributors[i], _amounts[i], _percentages[i]));
+            _mint(_contributors[i], 1, amounts[i], "");
         }
     }
 

@@ -124,7 +124,7 @@ contract Core {
             projectToken.mint(contributors[i].contributor, 1, amountToMint, "");
         }
 
-        emit ProjectStarted("Project is now in production", address(this));
+        emit ProjectStarted("Project is now in production", address(projectToken));
     }
 
     function setFundsRaised(uint256 _fundsRaised) internal {
