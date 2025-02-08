@@ -103,7 +103,7 @@ contract Core {
         projectInProd = true;
 
         // Création du contrat ERC1155 pour le projet
-        projectToken = new ProjectToken(_owner);
+        projectToken = new ProjectToken(_owner, name, symbol, totalSupply);
 
         // Préparer les données pour le minting
         address[] memory contributorAddresses = new address[](contributors.length);
@@ -115,7 +115,7 @@ contract Core {
         }
 
         // Appel du mint sur le contrat ERC1155
-        projectToken.mintTokensForContributors(contributorAddresses, amounts);
+        // projectToken.mintTokensForContributors(contributorAddresses, amounts);
 
         emit ProjectStarted("Project is now in production", address(projectToken));
     }
