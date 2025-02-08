@@ -1,12 +1,11 @@
-.sol
 // Compatible with OpenZeppelin Contracts ^5.0.0
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {ERC1155} from "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {IERC1155Errors} from "@openzeppelin/contracts/interfaces/draft-IERC6093.sol";
-import {ERC1155Utils} from "@openzeppelin/contracts/token/ERC1155/utils/ERC1155Utils.sol";
+import {ERC1155} from "../lib/openzeppelin-contracts/contracts/token/ERC1155/ERC1155.sol";
+import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
+import {IERC1155Errors} from "../lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
+import {ERC1155Utils} from "../lib/openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Utils.sol";
 
 
 contract ProjectToken is ERC1155, Ownable {
@@ -30,12 +29,12 @@ contract ProjectToken is ERC1155, Ownable {
         _mintBatch(to, ids, amounts, data);
     }
 
-    function balanceOf(address account, uint256 id) public view virtual returns(uint256)
+    function balanceOf(address account, uint256 id) public view virtual override returns(uint256)
     {
         return _balances[id][account];
     }
 
-    function balanceOfBatch(address[] memory accounts, uint256[] memory ids) public view virtual returns (uint256[] memory)
+    function balanceOfBatch(address[] memory accounts, uint256[] memory ids) public view virtual override returns (uint256[] memory)
     {
         if (accounts.length != ids.length) {
             revert ERC1155InvalidArrayLength(ids.length, accounts.length);
@@ -44,21 +43,21 @@ contract ProjectToken is ERC1155, Ownable {
         uint256[] memory batchBalances = new uint256[](accounts.length);
 
         for (uint256 i = 0; i < accounts.length; ++i){
-            batchBalances[i] = balanceOf(accounts.unsafeMemoryAccess(i), ids.unsafeMemoryAccess(i));
+            batchBalances[i] = balanceOf(accounts[i], ids[i]);
         }
 
         return batchBalances;
     }
 
-    function uri(uint256 id) public view virtual returns (string memory) {
+    function uri(uint256 id) public view virtual override returns (string memory) {
         return _uri;
     }
 
-    function _setURI(string memory newuri) internal virtual {
+    function _setURI(string memory newuri) internal virtual override {
         _uri = newuri;
     }
 
-    function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal virtual
+    function _update(address from, address to, uint256[] memory ids, uint256[] memory values) internal virtual override
     {
         if (ids.length != values.length) {
             revert ERC1155InvalidArrayLength(ids.length, values.length);
@@ -67,8 +66,8 @@ contract ProjectToken is ERC1155, Ownable {
         address operator = _msgSender();
 
         for (uint256 i = 0; i < ids.length; ++i) {
-            uint256 id = ids.unsafeMemoryAccess(i);
-            uint256 value = values.unsafeMemoryAccess(i);
+            uint256 id = ids[i];
+            uint256 value = values[i];
 
             if (from != address(0)) {
                 uint256 fromBalance = _balances[id][from];
@@ -87,8 +86,8 @@ contract ProjectToken is ERC1155, Ownable {
         }
 
         if (ids.length == 1) {
-            uint256 id = ids.unsafeMemoryAccess(0);
-            uint256 value = values.unsafeMemoryAccess(0);
+            uint256 id = ids[0];
+            uint256 value = values[0];
             emit TransferSingle(operator, from, to, id, value);
         } else {
             emit TransferBatch(operator, from, to, ids, values);
@@ -96,14 +95,14 @@ contract ProjectToken is ERC1155, Ownable {
     }
 
 
-    function _updateWithAcceptanceCheck(address from, address to, uint256[] memory ids, uint256[] memory values, bytes memory data) internal virtual
+    function _updateWithAcceptanceCheck(address from, address to, uint256[] memory ids, uint256[] memory values, bytes memory data) internal virtual override
     {
         _update(from, to, ids, values);
         if (to != address(0)) {
             address operator = _msgSender();
             if (ids.length == 1) {
-                uint256 id = ids.unsafeMemoryAccess(0);
-                uint256 value = values.unsafeMemoryAccess(0);
+                uint256 id = ids[0];
+                uint256 value = values[0];
                 ERC1155Utils.checkOnERC1155Received(operator, from, to, id, value, data);
             } else {
                 ERC1155Utils.checkOnERC1155BatchReceived(operator, from, to, ids, values, data);
