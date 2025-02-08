@@ -2,10 +2,10 @@
 pragma solidity ^0.8.20;
 
 import "./IERC1155.sol";
-import "../node_modules/@openzeppelin/contracts/proxy/Clones.sol";
+import "./IERC1155.sol"; // Core hérite maintenant directement de ProjectToken
 
 contract Core {
-    address public owner;
+    address public _owner;
     string public name;
     string public symbol;
     uint8 public decimals;
@@ -16,9 +16,8 @@ contract Core {
     uint256 public duration;
     uint256 public endTime;
     bool public projectInProd = false;
-    
-    address public implementationContract; // Adresse du contrat maître
-    address public clonedContract; // Adresse du contrat cloné
+
+    ProjectToken public projectToken;
 
     struct Contributor {
         address contributor;
@@ -27,13 +26,9 @@ contract Core {
     }
     Contributor[] public contributors;
 
-    event ProjectStarted(string message, address clonedContract);
+    event ProjectStarted(string message, address tokenContract);
     event ProjectRefunded(string message);
-    
-    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can call this function");
-        _;
-    }
+    event ProjectCreated(string message, address tokenContract);
 
     modifier onlyAfterEndTime() {
         require(block.timestamp >= endTime, "Function not available yet");
@@ -55,8 +50,12 @@ contract Core {
         _;
     }
 
+    modifier onlyOwner() {
+        require(msg.sender == _owner, "Only owner can call this function");
+        _;
+    }
+
     constructor(
-        address _implementationContract,
         string memory _name,
         string memory _symbol,
         uint8 _decimals,
@@ -65,8 +64,7 @@ contract Core {
         uint256 _airDropAmount,
         uint256 _duration
     ) {
-        owner = msg.sender;
-        implementationContract = _implementationContract;
+        _owner = msg.sender;
         name = _name;
         symbol = _symbol;
         fundsNeeded = _fundNeeded;
@@ -77,8 +75,8 @@ contract Core {
         endTime = block.timestamp + _duration;
     }
 
-    function setOwner(address _owner) public onlyOwner {
-        owner = _owner;
+    function setOwner(address __owner) public onlyOwner {
+        _owner = __owner;
     }
 
     function fundProject() public payable projectNotInProduction maxFundsNeededReached {
@@ -102,29 +100,30 @@ contract Core {
     }
 
     function startProjectProd() internal {
-        require(implementationContract != address(0), "Implementation contract not set");
-
         projectInProd = true;
 
-        // Mise à jour des pourcentages TFV
         for (uint i = 0; i < contributors.length; i++) {
             contributors[i].pourcentageTFV = uint8((contributors[i].amount * 100) / fundsRaised);
         }
 
-        // Clonage du contrat
-        clonedContract = Clones.clone(implementationContract);
+        address[] memory _contributors = new address[](contributors.length);
+        uint256[] memory _amounts = new uint256[](contributors.length);
+        uint8[] memory _percentages = new uint8[](contributors.length);
+        for (uint256 i = 0; i < contributors.length; i++) {
+            _contributors[i] = contributors[i].contributor;
+            _amounts[i] = contributors[i].amount;
+            _percentages[i] = uint8((contributors[i].amount * 100) / fundsRaised);
+        }
+        projectToken = new ProjectToken(_owner, _contributors, _amounts, _percentages);
 
-        // Initialisation du contrat cloné avec les variables du projet
-        (bool success, ) = clonedContract.call(
-            abi.encodeWithSignature(
-                "initialize(address, (address,uint256,uint8)[])",
-                owner,
-                contributors
-            )
-        );
-        require(success, "Failed to initialize clone");
+        emit ProjectStarted("Project is now in production", _owner);
 
-        emit ProjectStarted("Project is now in production", clonedContract);
+        // for (uint i = 0; i < contributors.length; i++) {
+        //     uint256 amountToMint = (contributors[i].amount * totalSupply) / fundsRaised;
+        //     projectToken.mint(contributors[i].contributor, 1, amountToMint, "");
+        // }
+
+        emit ProjectStarted("Project is now in production", address(this));
     }
 
     function setFundsRaised(uint256 _fundsRaised) internal {
@@ -139,14 +138,27 @@ contract Core {
         return contributors;
     }
 
-    function getContributedValue(address _contributor) public view returns (uint256) {
-        for (uint256 i = 0; i < contributors.length; i++) {
-            if (contributors[i].contributor == _contributor) {
-                return contributors[i].amount;
-            }
+    function _getContributorsMinted() public view returns (Contributor[] memory) {
+        ProjectToken.Contributor[] memory projectContributors = projectToken.getContributorsMinted();
+        Contributor[] memory coreContributors = new Contributor[](projectContributors.length);
+        for (uint256 i = 0; i < projectContributors.length; i++) {
+            coreContributors[i] = Contributor(
+                projectContributors[i].contributor,
+                projectContributors[i].amount,
+                projectContributors[i].pourcentageTFV
+            );
         }
-        return 0;
+        return coreContributors;
     }
+
+    // function getContributedValue(address _contributor) public view returns (uint256) {
+    //     for (uint256 i = 0; i < contributors.length; i++) {
+    //         if (contributors[i].contributor == _contributor) {
+    //             return contributors[i].amount;
+    //         }
+    //     }
+    //     return 0;
+    // }
 
     function getPourcentageTFV(address _contributor) public view returns (uint8) {
         for (uint256 i = 0; i < contributors.length; i++) {

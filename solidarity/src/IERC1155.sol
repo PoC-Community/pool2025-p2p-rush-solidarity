@@ -7,7 +7,6 @@ import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.so
 import {IERC1155Errors} from "../lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol";
 import {ERC1155Utils} from "../lib/openzeppelin-contracts/contracts/token/ERC1155/utils/ERC1155Utils.sol";
 
-
 contract ProjectToken is ERC1155, Ownable {
         // Stockage interne des soldes : _balances[id][adresse] = quantité
     mapping(uint256 id => mapping(address account => uint256)) private _balances;
@@ -15,8 +14,26 @@ contract ProjectToken is ERC1155, Ownable {
     // URI de base pour les métadonnées de tous les tokens ERC1155
     string private _uri;
 
+    struct Contributor {
+        address contributor;
+        uint256 amount;
+        uint8 pourcentageTFV;
+    }
+    Contributor[] public contributors;
+
     // Le constructeur définit le propriétaire initial et appelle le constructeur ERC1155
-    constructor(address initialOwner) ERC1155("") Ownable(initialOwner) {}
+    constructor(
+        address initialOwner,
+        address[] memory _contributors,
+        uint256[] memory _amounts,
+        uint8[] memory _percentages
+    ) ERC1155("") Ownable(initialOwner) {
+        require(_contributors.length == _amounts.length && _amounts.length == _percentages.length, "Invalid data");
+
+        for (uint256 i = 0; i < _contributors.length; i++) {
+            contributors.push(Contributor(_contributors[i], _amounts[i], _percentages[i]));
+        }
+    }
 
     // Fonction de mint : création de nouveaux tokens d'ID donné pour une adresse
     function mint(address account, uint256 id, uint256 amount, bytes memory data)
@@ -58,7 +75,7 @@ contract ProjectToken is ERC1155, Ownable {
     }
 
     // Retourne l'URI utilisée pour les métadonnées
-    function uri(uint256 id) public view virtual override returns (string memory) {
+    function uri() public view virtual returns (string memory) {
         return _uri;
     }
 
