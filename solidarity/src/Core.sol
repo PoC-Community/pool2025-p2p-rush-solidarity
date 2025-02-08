@@ -102,28 +102,22 @@ contract Core {
     function startProjectProd() internal {
         projectInProd = true;
 
-        for (uint i = 0; i < contributors.length; i++) {
-            contributors[i].pourcentageTFV = uint8((contributors[i].amount * 100) / fundsRaised);
-        }
+        // Création du contrat ERC1155 pour le projet
+        projectToken = new ProjectToken(_owner);
 
-        address[] memory _contributors = new address[](contributors.length);
-        uint256[] memory _amounts = new uint256[](contributors.length);
-        uint8[] memory _percentages = new uint8[](contributors.length);
+        // Préparer les données pour le minting
+        address[] memory contributorAddresses = new address[](contributors.length);
+        uint256[] memory amounts = new uint256[](contributors.length);
+
         for (uint256 i = 0; i < contributors.length; i++) {
-            _contributors[i] = contributors[i].contributor;
-            _amounts[i] = contributors[i].amount;
-            _percentages[i] = uint8((contributors[i].amount * 100) / fundsRaised);
+            contributorAddresses[i] = contributors[i].contributor;
+            amounts[i] = (contributors[i].amount * airDropAmount) / fundsRaised;
         }
-        projectToken = new ProjectToken(_owner, _contributors, _amounts, _percentages);
 
-        emit ProjectStarted("Project is now in production", _owner);
+        // Appel du mint sur le contrat ERC1155
+        projectToken.mintTokensForContributors(contributorAddresses, amounts);
 
-        // for (uint i = 0; i < contributors.length; i++) {
-        //     uint256 amountToMint = (contributors[i].amount * totalSupply) / fundsRaised;
-        //     projectToken.mint(contributors[i].contributor, 1, amountToMint, "");
-        // }
-
-        emit ProjectStarted("Project is now in production", address(this));
+        emit ProjectStarted("Project is now in production", address(projectToken));
     }
 
     function setFundsRaised(uint256 _fundsRaised) internal {
@@ -138,27 +132,14 @@ contract Core {
         return contributors;
     }
 
-    function _getContributorsMinted() public view returns (Contributor[] memory) {
-        ProjectToken.Contributor[] memory projectContributors = projectToken.getContributorsMinted();
-        Contributor[] memory coreContributors = new Contributor[](projectContributors.length);
-        for (uint256 i = 0; i < projectContributors.length; i++) {
-            coreContributors[i] = Contributor(
-                projectContributors[i].contributor,
-                projectContributors[i].amount,
-                projectContributors[i].pourcentageTFV
-            );
+    function getContributedValue(address _contributor) public view returns (uint256) {
+        for (uint256 i = 0; i < contributors.length; i++) {
+            if (contributors[i].contributor == _contributor) {
+                return contributors[i].amount;
+            }
         }
-        return coreContributors;
+        return 0;
     }
-
-    // function getContributedValue(address _contributor) public view returns (uint256) {
-    //     for (uint256 i = 0; i < contributors.length; i++) {
-    //         if (contributors[i].contributor == _contributor) {
-    //             return contributors[i].amount;
-    //         }
-    //     }
-    //     return 0;
-    // }
 
     function getPourcentageTFV(address _contributor) public view returns (uint8) {
         for (uint256 i = 0; i < contributors.length; i++) {
