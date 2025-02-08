@@ -14,3 +14,7 @@ docs/
 .env
 
 lcov.info
+
+package-lock.json
+package.json
+test.json
