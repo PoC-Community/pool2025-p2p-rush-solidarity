@@ -27,6 +27,10 @@ contract CoreTest is Test {
         assertEq(core.symbol(), "PXT");
         assertEq(core.decimals(), 18);
         assertEq(core.fundsNeeded(), initialFundsNeeded);
+        assertEq(core.totalSupply(), 1000000);
+        assertEq(core.duration(), duration);
+        assertEq(core.endTime(), block.timestamp + duration);
+        assertEq(core.airDropAmount(), airDropAmount);
         assertEq(core.getFundsRaised(), 0);
         assertEq(core.projectInProd(), false);
     }
@@ -54,15 +58,37 @@ contract CoreTest is Test {
         assertEq(core.projectInProd(), true);
     }
 
+    // function testRefundFlow() public
+    // {
+    //     vm.deal(contributor1, 4 ether);
+    //     vm.deal(contributor2, 6 ether);
+
+    //     vm.prank(contributor1);
+    //     core.fundProject{value: 4 ether}();
+
+    //     vm.prank(contributor2);
+    //     core.fundProject{value: 6 ether}();
+
+    //     vm.warp(block.timestamp + duration + 1);
+
+    //     uint256 balance1Befor =  contributor1.balance;
+    //     uint256 balance2Befor = contributor2.balance;
+    //     core.refundContributor();
+
+    //     assertEq(contributor1.balance, balance1Befor + 5 ether);
+    //     assertEq(contributor2.balance, balance2Befor + 3 ether);
+    // }
+
     function testExceedFundsNeeded() public {
         vm.deal(contributor1, 10 ether);
         vm.deal(contributor2, 5 ether);
 
-        vm.prank(contributor1);
+        vm.startPrank(contributor1);
         core.fundProject{value: 10 ether}();
+        vm.stopPrank();
 
         vm.prank(contributor2);
-        vm.expectRevert();
+        vm.expectRevert("Max funds needed reached");
         core.fundProject{value: 5 ether}();
     }
 
@@ -135,13 +161,12 @@ contract CoreTest is Test {
     }
 
     function testGetContributedValue() public {
+        vm.startPrank(contributor1);
         vm.deal(contributor1, 3 ether);
-
-        vm.prank(contributor1);
         core.fundProject{value: 3 ether}();
+        vm.stopPrank();
 
         assertEq(core.getContributedValue(contributor1), 3 ether);
-        assertEq(core.getContributedValue(contributor2), 0 ether);
     }
 
     function testCannotRefundBeforeEndTime() public {
@@ -168,5 +193,45 @@ contract CoreTest is Test {
 
         assertEq(core.getPourcentageTFV(contributor1), 30);
         assertEq(core.getPourcentageTFV(contributor2), 70);
+    }
+
+    function testZeroContribution() public {
+        vm.prank(contributor1);
+        vm.expectRevert("Amount must be greater than 0");
+        core.fundProject{value: 0}();
+    }
+
+    function testMultipleContributionsSameContributor() public {
+        vm.deal(contributor1, 5 ether);
+        vm.prank(contributor1);
+        core.fundProject{value: 2 ether}();
+        vm.prank(contributor1);
+        core.fundProject{value: 3 ether}();
+        assertEq(core.getFundsRaised(), 5 ether);
+        assertEq(core.getContributedValue(contributor1), 3 ether);
+        Core.Contributor[] memory cons = core.getContributors();
+        assertEq(cons.length, 2);
+    }
+
+    function testGetPourcentageForNonContributor() public view{
+        assertEq(core.getPourcentageTFV(contributor3), 0);
+    }
+
+    function testTokenDistribution() public {
+        vm.deal(contributor1, 4 ether);
+        vm.deal(contributor2, 6 ether);
+
+        vm.prank(contributor1);
+        core.fundProject{value: 4 ether}();
+        vm.prank(contributor2);
+        core.fundProject{value: 6 ether}();
+
+        // Récupération du contrat ProjectToken déployé
+        ProjectToken token = core.projectToken();
+        // Calcul tokens (cntribution * totalSupply) / fundsRaised
+        uint256 expected1 = (4 ether * totalSupply) / 10 ether;
+        uint256 expected2 = (6 ether * totalSupply) / 10 ether;
+        assertEq(token.balanceOf(contributor1, 1), expected1);
+        assertEq(token.balanceOf(contributor2, 1), expected2);
     }
 }

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.20;
 
 import "./IERC1155.sol";
-import "./IERC1155.sol"; // Core hérite maintenant directement de ProjectToken
 
 contract Core {
     address public _owner;
@@ -18,6 +17,7 @@ contract Core {
     bool public projectInProd = false;
 
     ProjectToken public projectToken;
+    mapping(address => uint256) private contributions;
 
     struct Contributor {
         address contributor;
@@ -79,9 +79,10 @@ contract Core {
         _owner = __owner;
     }
 
-    function fundProject() public payable projectNotInProduction maxFundsNeededReached {
+    function fundProject() public payable maxFundsNeededReached projectNotInProduction  {
         require(msg.value > 0, "Amount must be greater than 0");
         contributors.push(Contributor(msg.sender, msg.value, 0));
+        contributions[msg.sender] = msg.value;
         setFundsRaised(fundsRaised + msg.value);
         emit ProjectRefunded("Project has been funded");
 
@@ -101,27 +102,27 @@ contract Core {
 
     function startProjectProd() internal {
         projectInProd = true;
+        address[] memory _contributors = new address[](contributors.length);
+        uint256[] memory _amounts = new uint256[](contributors.length);
+        uint8[] memory _percentages = new uint8[](contributors.length);
 
         for (uint i = 0; i < contributors.length; i++) {
             contributors[i].pourcentageTFV = uint8((contributors[i].amount * 100) / fundsRaised);
         }
 
-        address[] memory _contributors = new address[](contributors.length);
-        uint256[] memory _amounts = new uint256[](contributors.length);
-        uint8[] memory _percentages = new uint8[](contributors.length);
         for (uint256 i = 0; i < contributors.length; i++) {
             _contributors[i] = contributors[i].contributor;
             _amounts[i] = contributors[i].amount;
             _percentages[i] = uint8((contributors[i].amount * 100) / fundsRaised);
         }
-        projectToken = new ProjectToken(_owner, _contributors, _amounts, _percentages);
+        projectToken = new ProjectToken(address(this), _contributors, _amounts, _percentages);
 
         emit ProjectStarted("Project is now in production", _owner);
 
-        // for (uint i = 0; i < contributors.length; i++) {
-        //     uint256 amountToMint = (contributors[i].amount * totalSupply) / fundsRaised;
-        //     projectToken.mint(contributors[i].contributor, 1, amountToMint, "");
-        // }
+        for (uint i = 0; i < contributors.length; i++) {
+            uint256 amountToMint = (contributors[i].amount * totalSupply) / fundsRaised;
+            projectToken.mint(contributors[i].contributor, 1, amountToMint, "");
+        }
 
         emit ProjectStarted("Project is now in production", address(this));
     }
@@ -139,26 +140,15 @@ contract Core {
     }
 
     function _getContributorsMinted() public view returns (Contributor[] memory) {
-        ProjectToken.Contributor[] memory projectContributors = projectToken.getContributorsMinted();
-        Contributor[] memory coreContributors = new Contributor[](projectContributors.length);
-        for (uint256 i = 0; i < projectContributors.length; i++) {
-            coreContributors[i] = Contributor(
-                projectContributors[i].contributor,
-                projectContributors[i].amount,
-                projectContributors[i].pourcentageTFV
-            );
-        }
-        return coreContributors;
+        return contributors;
     }
 
-    // function getContributedValue(address _contributor) public view returns (uint256) {
-    //     for (uint256 i = 0; i < contributors.length; i++) {
-    //         if (contributors[i].contributor == _contributor) {
-    //             return contributors[i].amount;
-    //         }
-    //     }
-    //     return 0;
-    // }
+
+    function getContributedValue(address contributor) public view returns (uint256) {
+
+        return contributions[contributor];
+
+    }
 
     function getPourcentageTFV(address _contributor) public view returns (uint8) {
         for (uint256 i = 0; i < contributors.length; i++) {
