@@ -1,3 +1,6 @@
 [submodule "solidarity/lib/forge-std"]
 	path = solidarity/lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "solidarity/lib/openzeppelin-contracts"]
+	path = solidarity/lib/openzeppelin-contracts
+	url = https://github.com/OpenZeppelin/openzeppelin-contracts
