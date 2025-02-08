@@ -1,6 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
+import "./IERC1155.sol";
+import "../node_modules/@openzeppelin/contracts/proxy/Clones.sol";
+
 contract Core {
     address public owner;
     string public name;
@@ -13,6 +16,9 @@ contract Core {
     uint256 public duration;
     uint256 public endTime;
     bool public projectInProd = false;
+    
+    address public implementationContract; // Adresse du contrat maître
+    address public clonedContract; // Adresse du contrat cloné
 
     struct Contributor {
         address contributor;
@@ -21,29 +27,9 @@ contract Core {
     }
     Contributor[] public contributors;
 
-    constructor(
-        string memory _name,
-        string memory _symbol,
-        uint8 _decimals,
-        uint256 _fundNeeded,
-        uint256 _totalSupply,
-        uint256 _airDropAmount,
-        uint256 _duration
-    ) {
-        owner = msg.sender;
-        name = _name;
-        symbol = _symbol;
-        fundsNeeded = _fundNeeded;
-        decimals = _decimals;
-        totalSupply = _totalSupply;
-        airDropAmount = _airDropAmount;
-        duration = _duration;
-        endTime = block.timestamp + _duration;
-    }
-
-    event ProjectStarted(string message);
-    event projectRefunded(string message);    
-
+    event ProjectStarted(string message, address clonedContract);
+    event ProjectRefunded(string message);
+    
     modifier onlyOwner() {
         require(msg.sender == owner, "Only owner can call this function");
         _;
@@ -69,15 +55,38 @@ contract Core {
         _;
     }
 
+    constructor(
+        address _implementationContract,
+        string memory _name,
+        string memory _symbol,
+        uint8 _decimals,
+        uint256 _fundNeeded,
+        uint256 _totalSupply,
+        uint256 _airDropAmount,
+        uint256 _duration
+    ) {
+        owner = msg.sender;
+        implementationContract = _implementationContract;
+        name = _name;
+        symbol = _symbol;
+        fundsNeeded = _fundNeeded;
+        decimals = _decimals;
+        totalSupply = _totalSupply;
+        airDropAmount = _airDropAmount;
+        duration = _duration;
+        endTime = block.timestamp + _duration;
+    }
+
     function setOwner(address _owner) public onlyOwner {
         owner = _owner;
     }
 
-    function fundProject() public payable projectNotInProduction maxFundsNeededReached{
+    function fundProject() public payable projectNotInProduction maxFundsNeededReached {
         require(msg.value > 0, "Amount must be greater than 0");
         contributors.push(Contributor(msg.sender, msg.value, 0));
         setFundsRaised(fundsRaised + msg.value);
-        emit projectRefunded("Project has been refunded");
+        emit ProjectRefunded("Project has been funded");
+
         if (fundsRaised >= fundsNeeded) {
             startProjectProd();
         }
@@ -93,11 +102,29 @@ contract Core {
     }
 
     function startProjectProd() internal {
+        require(implementationContract != address(0), "Implementation contract not set");
+
         projectInProd = true;
+
+        // Mise à jour des pourcentages TFV
         for (uint i = 0; i < contributors.length; i++) {
             contributors[i].pourcentageTFV = uint8((contributors[i].amount * 100) / fundsRaised);
         }
-        emit ProjectStarted("Project is now in production");
+
+        // Clonage du contrat
+        clonedContract = Clones.clone(implementationContract);
+
+        // Initialisation du contrat cloné avec les variables du projet
+        (bool success, ) = clonedContract.call(
+            abi.encodeWithSignature(
+                "initialize(address, (address,uint256,uint8)[])",
+                owner,
+                contributors
+            )
+        );
+        require(success, "Failed to initialize clone");
+
+        emit ProjectStarted("Project is now in production", clonedContract);
     }
 
     function setFundsRaised(uint256 _fundsRaised) internal {
