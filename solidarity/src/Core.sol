@@ -115,7 +115,7 @@ contract Core {
         }
 
         // Appel du mint sur le contrat ERC1155
-        projectToken.mintTokensForContributors(contributorAddresses, amounts);
+        // projectToken.mintTokensForContributors(contributorAddresses, amounts);
 
         emit ProjectStarted("Project is now in production", address(projectToken));
     }
