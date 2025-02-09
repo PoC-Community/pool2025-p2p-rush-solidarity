@@ -120,6 +120,10 @@ contract Core {
         emit ProjectStarted("Project is now in production", address(projectToken));
     }
 
+    function getProjectToken() public projectInProduction view returns (address) {
+        return address(projectToken);
+    }
+
     function setFundsRaised(uint256 _fundsRaised) internal {
         fundsRaised = _fundsRaised;
     }
